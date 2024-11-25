@@ -16,9 +16,14 @@
 package org.flatstruct;
 
 import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+import java.lang.reflect.Parameter;
+import java.util.HashSet;
+import java.util.Set;
 
 import net.bytebuddy.ByteBuddy;
 import net.bytebuddy.description.modifier.Visibility;
+import net.bytebuddy.dynamic.DynamicType.Builder;
 import net.bytebuddy.dynamic.loading.ClassLoadingStrategy;
 import net.bytebuddy.implementation.FieldAccessor;
 
@@ -27,12 +32,59 @@ import net.bytebuddy.implementation.FieldAccessor;
  */
 public class StructureFactory<T> extends Factory<T> {
 
-    // FIXME
-    private static final String X_FIELD = "x";
-    private static final String Y_FIELD = "y";
+    protected final Visibility fieldVisibility;
+
+    public StructureFactory(final Visibility fieldVisibility) {
+        super("Structure");
+
+        this.fieldVisibility = fieldVisibility;
+    }
 
     public StructureFactory() {
-        super("Structure");
+        this(Visibility.PRIVATE);
+    }
+
+    protected <V> Builder<V> addField(final Builder<V> builder, final Set<String> createdFields, final String fieldName,
+            final Class<?> fieldType) {
+        if (createdFields.contains(fieldName)) {
+            return builder;
+        }
+
+        createdFields.add(fieldName);
+        return builder.defineField(fieldName, fieldType, this.fieldVisibility);
+    }
+
+    protected <V> Builder<V> initializeClass(Builder<V> builder, final Class<T> classDef) {
+        final Set<String> createdFields = new HashSet<>();
+
+        for (Method method : classDef.getMethods()) {
+            final Getter getterAnnotation = method.getAnnotation(Getter.class);
+            if (getterAnnotation != null) {
+                final Class<?> returnType = method.getReturnType();
+                final String fieldName = getterAnnotation.value();
+
+                builder = addField(builder, createdFields, fieldName, returnType);
+
+                builder = builder.defineMethod(method.getName(), returnType)
+                        .intercept(FieldAccessor.ofField(fieldName));
+            }
+
+            for (Parameter param : method.getParameters()) {
+                final Setter setterAnnotation = param.getAnnotation(Setter.class);
+                if (setterAnnotation != null) {
+                    final Class<?> paramType = param.getType();
+                    final String fieldName = setterAnnotation.value();
+
+                    builder = addField(builder, createdFields, fieldName, paramType);
+
+                    builder = builder.defineMethod(method.getName(), void.class)
+                            .withParameter(paramType)
+                            .intercept(FieldAccessor.ofField(fieldName));
+                }
+            }
+        }
+
+        return builder;
     }
 
     @Override
@@ -41,32 +93,17 @@ public class StructureFactory<T> extends Factory<T> {
         verifyClassDefinition(classDef);
 
         try {
-            final Class<?> dynamicType = new ByteBuddy()
-                    // Interface for casting.
+            Builder<Object> builder = new ByteBuddy()
                     .subclass(Object.class)
-                    .implement(classDef)
-                    .name(createClassName(classDef))
-                    // Internal fields.
-                    .defineField(X_FIELD, int.class, Visibility.PRIVATE)
-                    .defineField(Y_FIELD, int.class, Visibility.PRIVATE)
-                    // Getter for X.
-                    .defineMethod("getX", int.class)
-                    .intercept(FieldAccessor.ofField(X_FIELD))
-                    // Setter for X.
-                    .defineMethod("setX", void.class)
-                    .withParameter(int.class)
-                    .intercept(FieldAccessor.ofField(X_FIELD))
-                    // Getter for Y.
-                    .defineMethod("getY", int.class)
-                    .intercept(FieldAccessor.ofField(Y_FIELD))
-                    // Setter for Y.
-                    .defineMethod("setY", void.class)
-                    .withParameter(int.class)
-                    .intercept(FieldAccessor.ofField(Y_FIELD))
-                    // Create class.
-                    .make()
-                    .load(classLoader, ClassLoadingStrategy.Default.INJECTION)
-                    .getLoaded();
+                    .implement(classDef) // Interface for casting.
+                    .name(createClassName(classDef));
+
+            builder = initializeClass(builder, classDef);
+
+            final Class<?> dynamicType = builder
+                    .make() // Create class.
+                    .load(classLoader, ClassLoadingStrategy.Default.INJECTION) // Load class.
+                    .getLoaded(); // Return class.
             return dynamicType;
         } catch (IllegalArgumentException | SecurityException e) {
             throw new RuntimeException(e);
