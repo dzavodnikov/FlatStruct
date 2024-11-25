@@ -1,0 +1,26 @@
+# Ignore all dot-files and dot-folders.
+.*
+
+# Save gitignore.
+!/.gitignore
+
+# Saving Travis CI.
+!/.travis.yml
+
+# Ignore log-files.
+**/*.log*
+
+# Ignore temporal directories.
+**/tmp/
+
+# Ignore Gradle build.
+build/
+
+# Ignore Maven build.
+target/
+
+# Ignore VSCode and Eclipse JDT (Java Development Tools) build.
+bin/
+
+# Ignore IntelliJ IDEA build.
+out/
