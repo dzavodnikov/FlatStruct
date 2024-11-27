@@ -40,4 +40,8 @@ public interface Point2D {
 
     @Getter(Y_FIELD_NAME)
     int getY();
+
+    void setXY(@Setter(X_FIELD_NAME) int x, @Setter(Y_FIELD_NAME) int y);
+
+    void setYX(@Setter(Y_FIELD_NAME) int y, @Setter(X_FIELD_NAME) int x);
 }

@@ -18,7 +18,9 @@ package org.flatstruct;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import net.bytebuddy.ByteBuddy;
@@ -26,6 +28,7 @@ import net.bytebuddy.description.modifier.Visibility;
 import net.bytebuddy.dynamic.DynamicType.Builder;
 import net.bytebuddy.dynamic.loading.ClassLoadingStrategy;
 import net.bytebuddy.implementation.FieldAccessor;
+import net.bytebuddy.implementation.Implementation.Composable;
 
 /**
  * Factory for flat structures.
@@ -39,9 +42,8 @@ public class StructureFactory<T> extends Factory<T> {
     protected <V> Builder<V> initializeFields(Builder<V> builder, final Map<String, Type> fields,
             final Class<T> classDef) {
         for (java.lang.reflect.Field field : classDef.getFields()) {
-            if (field.isAnnotationPresent(Field.class)) {
-                final Field fieldMeta = field.getAnnotation(Field.class);
-
+            final Field fieldMeta = field.getAnnotation(Field.class);
+            if (fieldMeta != null) {
                 try {
                     final java.lang.reflect.Type fieldDefType = field.getGenericType();
                     if (fieldDefType != String.class) {
@@ -89,16 +91,31 @@ public class StructureFactory<T> extends Factory<T> {
                         .intercept(FieldAccessor.ofField(fieldName));
             }
 
-            for (Parameter param : method.getParameters()) {
+            final List<Class<?>> fieldTypes = new ArrayList<>();
+            Composable setterBody = null;
+            final Parameter[] params = method.getParameters();
+            for (int i = 0; i < params.length; ++i) {
+                final Parameter param = params[i];
+
                 final Setter setterAnnotation = param.getAnnotation(Setter.class);
                 if (setterAnnotation != null) {
-                    final Class<?> paramType = param.getType();
-                    final String fieldName = setterAnnotation.value();
+                    fieldTypes.add(param.getType());
 
-                    builder = builder.defineMethod(method.getName(), void.class)
-                            .withParameter(paramType)
-                            .intercept(FieldAccessor.ofField(fieldName));
+                    final Composable fieldAccessor = FieldAccessor
+                            .ofField(setterAnnotation.value())
+                            .setsArgumentAt(i);
+                    if (setterBody == null) {
+                        setterBody = fieldAccessor;
+                    } else {
+                        setterBody = setterBody.andThen(fieldAccessor);
+                    }
                 }
+            }
+
+            if (setterBody != null) {
+                builder = builder.defineMethod(method.getName(), void.class)
+                        .withParameters(fieldTypes)
+                        .intercept(setterBody);
             }
         }
 
