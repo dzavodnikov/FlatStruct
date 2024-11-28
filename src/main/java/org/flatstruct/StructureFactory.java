@@ -18,8 +18,8 @@ package org.flatstruct;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
-import java.util.HashSet;
-import java.util.Set;
+import java.util.HashMap;
+import java.util.Map;
 
 import net.bytebuddy.ByteBuddy;
 import net.bytebuddy.description.modifier.Visibility;
@@ -32,38 +32,58 @@ import net.bytebuddy.implementation.FieldAccessor;
  */
 public class StructureFactory<T> extends Factory<T> {
 
-    protected final Visibility fieldVisibility;
-
-    public StructureFactory(final Visibility fieldVisibility) {
-        super("Structure");
-
-        this.fieldVisibility = fieldVisibility;
-    }
-
     public StructureFactory() {
-        this(Visibility.PRIVATE);
+        super("Structure");
     }
 
-    protected <V> Builder<V> addField(final Builder<V> builder, final Set<String> createdFields, final String fieldName,
-            final Class<?> fieldType) {
-        if (createdFields.contains(fieldName)) {
-            return builder;
+    protected <V> Builder<V> initializeFields(Builder<V> builder, final Map<String, Type> fields,
+            final Class<T> classDef) {
+        for (java.lang.reflect.Field field : classDef.getFields()) {
+            if (field.isAnnotationPresent(Field.class)) {
+                final Field fieldMeta = field.getAnnotation(Field.class);
+
+                try {
+                    final java.lang.reflect.Type fieldDefType = field.getGenericType();
+                    if (fieldDefType != String.class) {
+                        throw new RuntimeException("Incorrect field definition: constant should be the String");
+                    }
+
+                    final String fieldName = (String) field.get(null);
+                    if (fieldName == null) {
+                        throw new RuntimeException("Incorrect field definition: name can't be null");
+                    }
+                    if (fields.containsKey(fieldName)) {
+                        throw new RuntimeException(String.format("Duplicate field name '%s'", fieldName));
+                    }
+
+                    final Type fieldType = fieldMeta.value();
+                    if (fieldType == null) {
+                        throw new RuntimeException("Incorrect field definition: type can't be null");
+                    }
+
+                    final Visibility fieldVisibility = fieldMeta.visibility();
+                    if (fieldVisibility == null) {
+                        throw new RuntimeException("Incorrect field definition: visibility can't be null");
+                    }
+
+                    fields.put(fieldName, fieldType);
+                    builder = builder.defineField(fieldName, fieldType.getJavaType(), fieldVisibility);
+                } catch (IllegalArgumentException | IllegalAccessException e) {
+                    throw new RuntimeException(e);
+                }
+            }
         }
 
-        createdFields.add(fieldName);
-        return builder.defineField(fieldName, fieldType, this.fieldVisibility);
+        return builder;
     }
 
-    protected <V> Builder<V> initializeClass(Builder<V> builder, final Class<T> classDef) {
-        final Set<String> createdFields = new HashSet<>();
-
+    protected <V> Builder<V> initializeGettersAndSetters(Builder<V> builder, final Map<String, Type> fields,
+            final Class<T> classDef) {
         for (Method method : classDef.getMethods()) {
             final Getter getterAnnotation = method.getAnnotation(Getter.class);
             if (getterAnnotation != null) {
                 final Class<?> returnType = method.getReturnType();
                 final String fieldName = getterAnnotation.value();
-
-                builder = addField(builder, createdFields, fieldName, returnType);
 
                 builder = builder.defineMethod(method.getName(), returnType)
                         .intercept(FieldAccessor.ofField(fieldName));
@@ -74,8 +94,6 @@ public class StructureFactory<T> extends Factory<T> {
                 if (setterAnnotation != null) {
                     final Class<?> paramType = param.getType();
                     final String fieldName = setterAnnotation.value();
-
-                    builder = addField(builder, createdFields, fieldName, paramType);
 
                     builder = builder.defineMethod(method.getName(), void.class)
                             .withParameter(paramType)
@@ -98,7 +116,11 @@ public class StructureFactory<T> extends Factory<T> {
                     .implement(classDef) // Interface for casting.
                     .name(createClassName(classDef));
 
-            builder = initializeClass(builder, classDef);
+            final Map<String, Type> fields = new HashMap<>();
+
+            builder = initializeFields(builder, fields, classDef);
+
+            builder = initializeGettersAndSetters(builder, fields, classDef);
 
             final Class<?> dynamicType = builder
                     .make() // Create class.

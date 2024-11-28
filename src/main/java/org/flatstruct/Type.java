@@ -13,31 +13,29 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.flatstruct.example;
-
-import org.flatstruct.Field;
-import org.flatstruct.Getter;
-import org.flatstruct.Setter;
-import org.flatstruct.Type;
+package org.flatstruct;
 
 /**
- * Testing structure.
+ * Define type of the field.
  */
-public interface Point2D {
+public enum Type {
 
-    @Field(Type.INT)
-    String X_FIELD_NAME = "x";
+    BOOLEAN(boolean.class),
+    BYTE(byte.class),
+    CHAR(char.class),
+    SHORT(short.class),
+    INT(int.class),
+    FLOAT(float.class),
+    LONG(long.class),
+    DOUBLE(double.class);
 
-    @Field(Type.INT)
-    String Y_FIELD_NAME = "y";
+    private final Class<?> javaType;
 
-    void setX(@Setter(X_FIELD_NAME) int x);
+    private Type(Class<?> javaType) {
+        this.javaType = javaType;
+    }
 
-    @Getter(X_FIELD_NAME)
-    int getX();
-
-    void setY(@Setter(Y_FIELD_NAME) int y);
-
-    @Getter(Y_FIELD_NAME)
-    int getY();
+    public java.lang.reflect.Type getJavaType() {
+        return this.javaType;
+    }
 }

@@ -13,31 +13,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.flatstruct.example;
+package org.flatstruct;
 
-import org.flatstruct.Field;
-import org.flatstruct.Getter;
-import org.flatstruct.Setter;
-import org.flatstruct.Type;
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
+
+import net.bytebuddy.description.modifier.Visibility;
 
 /**
- * Testing structure.
+ * Define the field.
  */
-public interface Point2D {
+@Retention(RetentionPolicy.RUNTIME)
+@Target(ElementType.FIELD)
+public @interface Field {
 
-    @Field(Type.INT)
-    String X_FIELD_NAME = "x";
+    Type value();
 
-    @Field(Type.INT)
-    String Y_FIELD_NAME = "y";
-
-    void setX(@Setter(X_FIELD_NAME) int x);
-
-    @Getter(X_FIELD_NAME)
-    int getX();
-
-    void setY(@Setter(Y_FIELD_NAME) int y);
-
-    @Getter(Y_FIELD_NAME)
-    int getY();
+    Visibility visibility() default Visibility.PRIVATE;
 }
