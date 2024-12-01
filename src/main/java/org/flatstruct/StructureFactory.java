@@ -29,6 +29,7 @@ import net.bytebuddy.dynamic.DynamicType.Builder;
 import net.bytebuddy.dynamic.loading.ClassLoadingStrategy;
 import net.bytebuddy.implementation.FieldAccessor;
 import net.bytebuddy.implementation.Implementation.Composable;
+import net.bytebuddy.implementation.MethodDelegation;
 
 /**
  * Factory for flat structures.
@@ -128,16 +129,29 @@ public class StructureFactory<T> extends Factory<T> {
         verifyClassDefinition(classDef);
 
         try {
+            final String className = createClassName(classDef);
             Builder<Object> builder = new ByteBuddy()
                     .subclass(Object.class)
                     .implement(classDef) // Interface for casting.
-                    .name(createClassName(classDef));
+                    .name(className);
 
             final Map<String, Type> fields = new HashMap<>();
 
             builder = initializeFields(builder, fields, classDef);
 
             builder = initializeGettersAndSetters(builder, fields, classDef);
+
+            builder = builder
+                    // equals
+                    .defineMethod("equals", boolean.class)
+                    .withParameter(Object.class)
+                    .intercept(MethodDelegation.to(EqualsInterceptor.class))
+                    // hashCode
+                    .defineMethod("hashCode", int.class)
+                    .intercept(MethodDelegation.to(HashCodeInterceptor.class))
+                    // toString
+                    .defineMethod("toString", String.class)
+                    .intercept(MethodDelegation.to(ToStringInterceptor.class));
 
             final Class<?> dynamicType = builder
                     .make() // Create class.
