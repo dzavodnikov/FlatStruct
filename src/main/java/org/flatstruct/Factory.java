@@ -133,6 +133,15 @@ public abstract class Factory {
         }
     }
 
+    protected abstract MethodBuilder initializeEquals(String className)
+            throws CannotCompileException, NotFoundException;
+
+    protected abstract MethodBuilder initializeHashCode(String className)
+            throws CannotCompileException, NotFoundException;
+
+    protected abstract MethodBuilder initializeToString(String className)
+            throws CannotCompileException, NotFoundException;
+
     private String getFieldName(final java.lang.reflect.Field field) {
         try {
             final String fieldName = (String) field.get(null);
@@ -187,6 +196,9 @@ public abstract class Factory {
 
         initializeFields(ctClass);
         initializeGettersAndSetters(ctClass, classDef);
+        initializeEquals(className).addMethodTo(ctClass);
+        initializeHashCode(className).addMethodTo(ctClass);
+        initializeToString(className).addMethodTo(ctClass);
     }
 
     protected Class<?>[] getConstructorParameters() {
