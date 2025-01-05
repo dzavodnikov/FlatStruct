@@ -62,14 +62,21 @@ public class StructureFactory extends Factory {
 
     @Override
     protected void initializeGetter(final MethodBuilder mb, final Getter getterAnnotation, final Class<?> returnType) {
+        if (getterAnnotation.isSynchronized()) {
+            mb.addModifier("synchronized");
+        }
         mb.setReturnType(returnType);
         mb.addBodyLine("return this.%s;", getterAnnotation.value());
     }
 
     @Override
     protected void initializeSetter(final MethodBuilder mb, final Setter setterAnnotation, final Parameter param) {
+        String body = "this.%s = %s;";
+        if (setterAnnotation.isSynchronized()) {
+            body = String.format("synchronized(this) { %s }", body);
+        }
         mb.addArgument(param);
-        mb.addBodyLine("this.%s = %s;", setterAnnotation.value(), param.getName());
+        mb.addBodyLine(body, setterAnnotation.value(), param.getName());
     }
 
     public <T> T create(final Class<T> classDef) {
