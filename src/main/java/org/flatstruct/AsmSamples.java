@@ -22,14 +22,20 @@ import org.objectweb.asm.Opcodes;
 /**
  * Samples of ASM implementations.
  */
-public interface AsmSamples {
+public class AsmSamples {
+
+    // Define the interface first
+    public interface Adder {
+        int sum(int a, int b);
+    }
 
     public static byte[] generateAdderClass() {
         final ClassWriter cw = new ClassWriter(0);
         MethodVisitor mv;
 
-        // Define class header: Java 8, public class, named "Adder".
-        cw.visit(Opcodes.V1_8, Opcodes.ACC_PUBLIC + Opcodes.ACC_SUPER, "Adder", null, "java/lang/Object", null);
+        // Define class header: Java 8, implements Adder interface.
+        cw.visit(Opcodes.V1_8, Opcodes.ACC_PUBLIC + Opcodes.ACC_SUPER, "AdderImpl", null, "java/lang/Object",
+                new String[] { "org/flatstruct/AsmSamples$Adder" });
 
         // Create default constructor.
         mv = cw.visitMethod(Opcodes.ACC_PUBLIC, "<init>", "()V", null, null);
@@ -40,21 +46,21 @@ public interface AsmSamples {
         mv.visitMaxs(1, 1);
         mv.visitEnd();
 
-        // Create sum method that takes two integers and returns their sum.
-        mv = cw.visitMethod(Opcodes.ACC_PUBLIC + Opcodes.ACC_STATIC, "sum", "(II)I", null, null);
+        // Create sum method implementing the interface.
+        mv = cw.visitMethod(Opcodes.ACC_PUBLIC, "sum", "(II)I", null, null);
         mv.visitCode();
 
         // Load first parameter (int a) onto stack.
-        mv.visitVarInsn(Opcodes.ILOAD, 0);
-        // Load second parameter (int b) onto stack.
         mv.visitVarInsn(Opcodes.ILOAD, 1);
+        // Load second parameter (int b) onto stack.
+        mv.visitVarInsn(Opcodes.ILOAD, 2);
         // Add the two integers.
         mv.visitInsn(Opcodes.IADD);
         // Return the result.
         mv.visitInsn(Opcodes.IRETURN);
 
-        // Set stack size and local variables size.
-        mv.visitMaxs(2, 2);
+        // Set stack size and local variables size (note: 3 because of 'this').
+        mv.visitMaxs(2, 3);
         mv.visitEnd();
 
         cw.visitEnd();
