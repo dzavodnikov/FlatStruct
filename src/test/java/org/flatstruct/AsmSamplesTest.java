@@ -17,8 +17,7 @@ package org.flatstruct;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-import java.lang.reflect.Method;
-
+import org.flatstruct.AsmSamples.Adder;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -39,11 +38,10 @@ public class AsmSamplesTest {
         }
 
         final DynamicClassLoader classLoader = new DynamicClassLoader();
-        final Class<?> adderClass = classLoader.defineClass("Adder", classBytes);
+        final Class<?> adderClass = classLoader.defineClass("AdderImpl", classBytes);
 
-        // Invoke the sum method using reflection.
-        final Method sumMethod = adderClass.getMethod("sum", int.class, int.class);
-        final int result = (int) sumMethod.invoke(null, 5, 3);
-        assertEquals(8, result);
+        // Create instance and use it directly as Adder.
+        final Adder adder = (Adder) adderClass.getDeclaredConstructor().newInstance();
+        assertEquals(8, adder.sum(5, 3));
     }
 }
