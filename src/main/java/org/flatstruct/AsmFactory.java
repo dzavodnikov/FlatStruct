@@ -15,26 +15,15 @@
  */
 package org.flatstruct;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
+public abstract class AsmFactory<T> extends Factory<T> {
 
-import org.flatstruct.AsmSamples.Adder;
-import org.junit.jupiter.api.Test;
+    protected abstract byte[] implementClass(String className);
 
-/**
- * Tests for {@link AsmSamples}.
- */
-public class AsmSamplesTest {
-
-    @Test
-    void testSum() throws Exception {
-        // Generate the class bytecode.
-        final byte[] classBytes = AsmSamples.generateAdderClass();
-
+    @Override
+    public Class<?> createImpl(final Class<T> classDef) {
         final DynamicClassLoader classLoader = new DynamicClassLoader();
-        final Class<?> adderClass = classLoader.defineClass("AdderImpl", classBytes);
-
-        // Create instance and use it directly as Adder.
-        final Adder adder = (Adder) adderClass.getDeclaredConstructor().newInstance();
-        assertEquals(8, adder.sum(5, 3));
+        final String className = createClassName(classDef);
+        final byte[] classBytes = implementClass(className);
+        return classLoader.defineClass(className, classBytes);
     }
 }
